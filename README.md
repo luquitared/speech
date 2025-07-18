@@ -1,43 +1,60 @@
-# MCP Server Boilerplate
+# MCP Speech TTS Server
 
-A starter template for building MCP (Model Context Protocol) servers. This boilerplate provides a clean foundation for creating your own MCP server that can integrate with Claude, Cursor, or other MCP-compatible AI assistants.
+A comprehensive MCP (Model Context Protocol) server that provides text-to-speech generation and audio processing capabilities. This server integrates with Replicate's TTS models and FFmpeg for complete audio workflows.
 
 ## Purpose
 
-This boilerplate helps you quickly start building:
+This MCP server enables AI assistants to:
 
-- Custom tools for AI assistants
-- Resource providers for dynamic content
-- Prompt templates for common operations
-- Integration points for external APIs and services
+- Generate speech from text using multiple TTS models
+- Process and manipulate audio files
+- Extract audio metadata and information
+- Convert between different audio formats
+- Perform advanced audio editing operations
 
 ## Features
 
-- Simple "hello-world" tool example
-- TypeScript support with proper type definitions
-- Easy installation scripts for different MCP clients
-- Clean project structure ready for customization
+- **Text-to-Speech**: Generate speech using Chatterbox, Chatterbox Pro, and Minimax models
+- **Audio Processing**: Trim, volume adjustment, format conversion, and concatenation
+- **Audio Analysis**: Extract comprehensive metadata from audio files
+- **Multi-Model Support**: Choose from different TTS models with specific parameters
+- **Audio Editing**: Split audio files into segments with customizable durations
+- **TypeScript Support**: Full type definitions and Zod schema validation
+- **Easy Installation**: Scripts for different MCP clients
 
 ## How It Works
 
-This MCP server template provides:
+This MCP server provides:
 
-1. A basic server setup using the MCP SDK
-2. Example tool implementation
-3. Build and installation scripts
-4. TypeScript configuration for development
+1. **TTS Generation**: Converts text to speech using Replicate's AI models
+2. **Audio Processing**: Comprehensive audio manipulation using FFmpeg
+3. **File Management**: Automatic audio directory creation and file handling
+4. **Multi-Model Support**: Configurable parameters for different TTS models
+5. **Error Handling**: Robust error handling with detailed feedback
 
-The included example demonstrates how to create a simple tool that takes a name parameter and returns a greeting.
+The server includes 7 main tools for complete audio workflows from text input to final processed audio files.
 
 ## Getting Started
 
+### Prerequisites
+
+- Node.js (v18 or higher)
+- FFmpeg installed on your system
+- Replicate API token (sign up at [replicate.com](https://replicate.com))
+
+### Installation
+
 ```bash
-# Clone the boilerplate
+# Clone the repository
 git clone <your-repo-url>
-cd mcp-server-boilerplate
+cd mcp-speech-server
 
 # Install dependencies
 pnpm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local and add your REPLICATE_API_TOKEN
 
 # Build the project
 pnpm run build
