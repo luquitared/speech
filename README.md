@@ -65,7 +65,7 @@ pnpm start
 
 ## Installation Scripts
 
-This boilerplate includes convenient installation scripts for different MCP clients:
+Install the server to different MCP clients:
 
 ```bash
 # For Claude Desktop
@@ -77,7 +77,7 @@ pnpm run install-cursor
 # For Claude Code
 pnpm run install-code
 
-# Generic installation
+# For all MCP clients
 pnpm run install-server
 ```
 
@@ -90,9 +90,12 @@ The installation script will automatically add the configuration, but you can al
 ```json
 {
   "mcpServers": {
-    "your-server-name": {
+    "speech-tts": {
       "command": "node",
-      "args": ["/path/to/your/dist/index.js"]
+      "args": ["/path/to/your/dist/index.js"],
+      "env": {
+        "REPLICATE_API_TOKEN": "your-token-here"
+      }
     }
   }
 }
@@ -100,98 +103,48 @@ The installation script will automatically add the configuration, but you can al
 
 Then restart Claude Desktop to connect to the server.
 
-## Customizing Your Server
+## Available Tools
 
-### Adding Tools
+### Text-to-Speech
+- **text-to-speech**: Generate speech from text using Chatterbox, Chatterbox Pro, or Minimax models
+- Supports voice selection, emotion control, and audio quality settings
+- Automatically saves generated audio to the `audio/` directory
 
-Tools are functions that the AI assistant can call. Here's the basic structure:
+### Audio Processing
+- **get-audio-metadata**: Extract comprehensive metadata from audio files
+- **trim-audio**: Trim audio files to specified start/end times or duration
+- **adjust-audio-volume**: Adjust audio volume with multiplier controls
+- **convert-audio-format**: Convert between different audio formats (mp3, wav, flac, ogg)
+- **concatenate-audio**: Combine multiple audio files into one
+- **split-audio**: Split audio files into segments of specified duration
 
-```typescript
-server.tool(
-  "tool-name",
-  "Description of what the tool does",
-  {
-    // Zod schema for parameters
-    param1: z.string().describe("Description of parameter"),
-    param2: z.number().optional().describe("Optional parameter"),
-  },
-  async ({ param1, param2 }) => {
-    // Your tool logic here
-    return {
-      content: [
-        {
-          type: "text",
-          text: "Your response",
-        },
-      ],
-    };
-  }
-);
-```
+### Usage Examples
 
-### Adding Resources
+```bash
+# Generate speech using Chatterbox model
+text-to-speech "Hello world!" --model chatterbox --voice Luna
 
-Resources provide dynamic content that the AI can access:
+# Extract audio metadata
+get-audio-metadata audio/speech.wav
 
-```typescript
-server.resource(
-  "resource://example/{id}",
-  "Description of the resource",
-  async (uri) => {
-    // Extract parameters from URI
-    const id = uri.path.split("/").pop();
+# Trim audio from 30 seconds to 2 minutes
+trim-audio audio/input.wav audio/output.wav --start_time 30 --duration 90
 
-    return {
-      contents: [
-        {
-          uri,
-          mimeType: "text/plain",
-          text: `Content for ${id}`,
-        },
-      ],
-    };
-  }
-);
-```
-
-### Adding Prompts
-
-Prompts are reusable templates:
-
-```typescript
-server.prompt(
-  "prompt-name",
-  "Description of the prompt",
-  {
-    // Parameters for the prompt
-    topic: z.string().describe("The topic to discuss"),
-  },
-  async ({ topic }) => {
-    return {
-      description: `A prompt about ${topic}`,
-      messages: [
-        {
-          role: "user",
-          content: {
-            type: "text",
-            text: `Please help me with ${topic}`,
-          },
-        },
-      ],
-    };
-  }
-);
+# Convert audio format
+convert-audio-format audio/input.wav audio/output.mp3 --format mp3 --bitrate 192k
 ```
 
 ## Project Structure
 
 ```
 ├── src/
-│   └── index.ts          # Main server implementation
+│   └── index.ts          # Main server implementation with all tools
 ├── scripts/              # Installation and utility scripts
 ├── dist/                 # Compiled JavaScript (generated)
+├── audio/                # Generated audio files (created automatically)
 ├── package.json          # Project configuration
 ├── tsconfig.json         # TypeScript configuration
+├── .env.local            # Environment variables (create from .env.example)
 └── README.md            # This file
 ```
 
@@ -202,12 +155,30 @@ server.prompt(
 3. Test your server with `pnpm start`
 4. Use the installation scripts to update your MCP client configuration
 
-## Next Steps
+## TTS Models
 
-1. Update `package.json` with your project details
-2. Customize the server name and tools in `src/index.ts`
-3. Add your own tools, resources, and prompts
-4. Integrate with external APIs or databases as needed
+### Chatterbox
+- **Voices**: Luna, Ember, Hem, Aurora, Cliff, Josh, William, Orion, Ken
+- **Parameters**: temperature, cfg_weight, exaggeration, audio_prompt
+- **Use case**: General-purpose TTS with voice cloning support
+
+### Chatterbox Pro  
+- **Voices**: Luna and custom voice UUIDs
+- **Parameters**: pitch, temperature, exaggeration, custom_voice
+- **Use case**: Professional-grade TTS with custom voices
+
+### Minimax
+- **Voices**: Deep_Voice_Man, Wise_Woman, and others
+- **Parameters**: speed, volume, emotion, sample_rate, bitrate
+- **Use case**: Multilingual TTS with emotion control
+
+## Dependencies
+
+- `@modelcontextprotocol/sdk` - MCP protocol implementation
+- `replicate` - AI model inference platform
+- `fluent-ffmpeg` - Audio processing and manipulation
+- `axios` - HTTP client for API calls
+- `zod` - Runtime type validation
 
 ## License
 
