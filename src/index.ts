@@ -23,12 +23,15 @@ server.tool(
   "text-to-speech",
   "Convert text to speech using Replicate's TTS models and save to audio directory",
   {
-    text: z.string().describe("The text to convert to speech"),
+    text: z.union([
+      z.string(),
+      z.array(z.string())
+    ]).describe("The text to convert to speech (string or array of strings)"),
     filename: z
       .string()
       .optional()
       .describe(
-        "Optional filename for the audio file (without extension). Defaults to timestamp"
+        "Optional filename prefix for the audio file(s) (without extension). Defaults to timestamp"
       ),
     model: z
       .enum(["chatterbox", "chatterbox-pro", "minimax"])
@@ -146,82 +149,6 @@ server.tool(
         throw new Error("REPLICATE_API_TOKEN environment variable is not set");
       }
 
-      let modelId: string;
-      let input: any = {};
-
-      // Configure model and input based on selected model
-      switch (model) {
-        case "chatterbox":
-          modelId = "resemble-ai/chatterbox";
-          input = {
-            prompt: text,
-            seed: seed ?? 0,
-            temperature: temperature ?? 0.8,
-            cfg_weight: cfg_weight ?? 0.5,
-            exaggeration: exaggeration ?? 0.5,
-          };
-          if (audio_prompt) input.audio_prompt = audio_prompt;
-          break;
-
-        case "chatterbox-pro":
-          modelId = "resemble-ai/chatterbox-pro";
-          input = {
-            prompt: text,
-            voice: voice ?? "Luna",
-            pitch: pitch ?? "medium",
-            temperature: temperature ?? 0.8,
-            exaggeration: exaggeration ?? 0.5,
-          };
-          if (custom_voice) input.custom_voice = custom_voice;
-          if (seed !== undefined) input.seed = seed;
-          break;
-
-        case "minimax":
-          modelId = "minimax/speech-02-turbo";
-          input = {
-            text: text,
-            voice_id: voice_id ?? "Deep_Voice_Man",
-            speed: speed ?? 1.0,
-            volume: volume ?? 1,
-            emotion: emotion ?? "auto",
-            sample_rate: sample_rate ?? 32000,
-            bitrate: bitrate ?? 128000,
-            channel: channel ?? "mono",
-          };
-          if (language_boost) input.language_boost = language_boost;
-          if (english_normalization !== undefined)
-            input.english_normalization = english_normalization;
-          break;
-
-        default: // bark
-          modelId =
-            "suno-ai/bark:b76242b40d67c76ab6742e987628a2a9ac019e11d56ab96c4e91ce03b79b2787";
-          input = {
-            text,
-            text_temp: 0.7,
-            waveform_temp: 0.7,
-          };
-          if (seed !== undefined) input.seed = seed;
-          break;
-      }
-
-      // Generate TTS audio
-      const output = await replicate.run(modelId as `${string}/${string}`, {
-        input,
-      });
-
-      console.error("Replicate output:", JSON.stringify(output, null, 2));
-
-      const audioUrl = (output as any).url();
-
-      // Download and save the audio file
-      const response = await axios({
-        method: "GET",
-        url: audioUrl,
-        responseType: "arraybuffer",
-      });
-
-      const audioBuffer = Buffer.from(response.data);
       const fs = await import("fs");
       const path = await import("path");
 
@@ -231,27 +158,118 @@ server.tool(
         fs.mkdirSync(audioDir, { recursive: true });
       }
 
-      // Generate filename if not provided
-      if (!filename) {
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        filename = `speech-${timestamp}`;
-      }
+      // Handle single text or array of texts
+      const textArray = Array.isArray(text) ? text : [text];
 
-      // Ensure .wav extension
-      if (!filename.endsWith(".wav")) {
-        filename += ".wav";
-      }
+      // Generate TTS for each text in parallel
+      const generateTTS = async (textContent: string, index: number) => {
+        let modelId: string;
+        let input: any = {};
 
-      const outputPath = path.join(audioDir, filename);
-      fs.writeFileSync(outputPath, audioBuffer);
+        // Configure model and input based on selected model
+        switch (model) {
+          case "chatterbox":
+            modelId = "resemble-ai/chatterbox";
+            input = {
+              prompt: textContent,
+              seed: seed ?? 0,
+              temperature: temperature ?? 0.8,
+              cfg_weight: cfg_weight ?? 0.5,
+              exaggeration: exaggeration ?? 0.5,
+            };
+            if (audio_prompt) input.audio_prompt = audio_prompt;
+            break;
 
-      const relativePath = path.join("audio", filename);
+          case "chatterbox-pro":
+            modelId = "resemble-ai/chatterbox-pro";
+            input = {
+              prompt: textContent,
+              voice: voice ?? "Luna",
+              pitch: pitch ?? "medium",
+              temperature: temperature ?? 0.8,
+              exaggeration: exaggeration ?? 0.5,
+            };
+            if (custom_voice) input.custom_voice = custom_voice;
+            if (seed !== undefined) input.seed = seed;
+            break;
+
+          case "minimax":
+            modelId = "minimax/speech-02-turbo";
+            input = {
+              text: textContent,
+              voice_id: voice_id ?? "Deep_Voice_Man",
+              speed: speed ?? 1.0,
+              volume: volume ?? 1,
+              emotion: emotion ?? "auto",
+              sample_rate: sample_rate ?? 32000,
+              bitrate: bitrate ?? 128000,
+              channel: channel ?? "mono",
+            };
+            if (language_boost) input.language_boost = language_boost;
+            if (english_normalization !== undefined)
+              input.english_normalization = english_normalization;
+            break;
+
+          default: // bark
+            modelId =
+              "suno-ai/bark:b76242b40d67c76ab6742e987628a2a9ac019e11d56ab96c4e91ce03b79b2787";
+            input = {
+              text: textContent,
+              text_temp: 0.7,
+              waveform_temp: 0.7,
+            };
+            if (seed !== undefined) input.seed = seed;
+            break;
+        }
+
+        // Generate TTS audio
+        const output = await replicate.run(modelId as `${string}/${string}`, {
+          input,
+        });
+
+        console.error(`Replicate output for text ${index + 1}:`, JSON.stringify(output, null, 2));
+
+        const audioUrl = (output as any).url();
+
+        // Download and save the audio file
+        const response = await axios({
+          method: "GET",
+          url: audioUrl,
+          responseType: "arraybuffer",
+        });
+
+        const audioBuffer = Buffer.from(response.data);
+
+        // Generate filename
+        let outputFilename: string;
+        if (filename) {
+          outputFilename = textArray.length > 1 ? `${filename}-${index + 1}` : filename;
+        } else {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          outputFilename = textArray.length > 1 ? `speech-${timestamp}-${index + 1}` : `speech-${timestamp}`;
+        }
+
+        // Ensure .wav extension
+        if (!outputFilename.endsWith(".wav")) {
+          outputFilename += ".wav";
+        }
+
+        const outputPath = path.join(audioDir, outputFilename);
+        fs.writeFileSync(outputPath, audioBuffer);
+
+        return path.join("audio", outputFilename);
+      };
+
+      // Process all texts in parallel
+      const generatedFiles = await Promise.all(
+        textArray.map((textContent, index) => generateTTS(textContent, index))
+      );
 
       return {
         content: [
           {
             type: "text",
-            text: `Successfully generated and saved speech audio using ${model} model to: ${relativePath}`,
+            text: `Successfully generated and saved ${generatedFiles.length} speech audio file(s) using ${model} model:\n${generatedFiles.map(file => `- ${file}`).join('\n')}`,
           },
         ],
       };
