@@ -7,7 +7,7 @@ import { ToolResponse } from "./types.js";
 export function registerTextToSpeechTool(server: McpServer, replicate: Replicate) {
   server.tool(
     "text-to-speech",
-    "Convert text to speech using Replicate's TTS models and save to audio directory",
+    "Convert text to speech using Replicate's TTS models (Chatterbox, Chatterbox Pro, Minimax) and save to audio directory. For ElevenLabs TTS with timestamps, use the elevenlabs-text-to-speech tool instead.",
     {
       text: z.string().describe("The text to convert to speech"),
       filename: z
@@ -54,7 +54,7 @@ export function registerTextToSpeechTool(server: McpServer, replicate: Replicate
         .describe("Custom voice UUID for Chatterbox Pro"),
 
       // Minimax parameters
-      voice_id: z
+      minimax_voice_id: z
         .string()
         .optional()
         .describe("Voice ID for Minimax (e.g., 'Deep_Voice_Man', 'Wise_Woman')"),
@@ -106,7 +106,7 @@ export function registerTextToSpeechTool(server: McpServer, replicate: Replicate
       pitch,
       audio_prompt,
       custom_voice,
-      voice_id,
+      minimax_voice_id,
       speed,
       volume,
       emotion,
@@ -130,7 +130,7 @@ export function registerTextToSpeechTool(server: McpServer, replicate: Replicate
           fs.mkdirSync(audioDir, { recursive: true });
         }
 
-        let modelId: string;
+        let modelId: string = "";
         let input: any = {};
 
         // Configure model and input based on selected model
@@ -164,7 +164,7 @@ export function registerTextToSpeechTool(server: McpServer, replicate: Replicate
             modelId = "minimax/speech-02-turbo";
             input = {
               text: text,
-              voice_id: voice_id ?? "Deep_Voice_Man",
+              voice_id: minimax_voice_id ?? "Deep_Voice_Man",
               speed: speed ?? 1.0,
               volume: volume ?? 1,
               emotion: emotion ?? "auto",
@@ -177,11 +177,12 @@ export function registerTextToSpeechTool(server: McpServer, replicate: Replicate
               input.english_normalization = english_normalization;
             break;
 
+
           default:
             throw new Error(`Unsupported model: ${model}`);
         }
 
-        // Generate TTS audio
+        // Generate TTS audio using Replicate
         const output = await replicate.run(modelId as `${string}/${string}`, {
           input,
         });
@@ -199,6 +200,7 @@ export function registerTextToSpeechTool(server: McpServer, replicate: Replicate
 
         const audioBuffer = Buffer.from(response.data);
 
+
         // Generate filename
         let outputFilename: string;
         if (filename) {
@@ -208,7 +210,7 @@ export function registerTextToSpeechTool(server: McpServer, replicate: Replicate
           outputFilename = `speech-${timestamp}`;
         }
 
-        // Ensure .wav extension
+        // Set .wav extension
         if (!outputFilename.endsWith(".wav")) {
           outputFilename += ".wav";
         }
