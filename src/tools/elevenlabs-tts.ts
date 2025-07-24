@@ -29,13 +29,17 @@ const ELEVENLABS_VOICES = {
 export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenLabsClient) {
   server.tool(
     "elevenlabs-text-to-speech",
-    "Convert text to speech using ElevenLabs API with character-level timestamps. Automatically saves audio file and two timestamp files: full character-level data and abbreviated word-level summary to audio directory",
+    "Convert text to speech using ElevenLabs API with character-level timestamps. Automatically saves audio file and timestamp files (character, word, and sentence level) to specified or default audio directory",
     {
       text: z.string().describe("The text to convert to speech"),
       filename: z
         .string()
         .optional()
         .describe("Optional filename for the audio file (without extension). Defaults to timestamp"),
+      output_directory: z
+        .string()
+        .optional()
+        .describe("Optional output directory for the audio files. Defaults to './audio'"),
       
       // Voice selection
       voice: z
@@ -124,6 +128,7 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
     async ({
       text,
       filename,
+      output_directory,
       voice,
       voice_id,
       model_id,
@@ -149,7 +154,7 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
         const path = await import("path");
 
         // Create audio directory if it doesn't exist
-        const audioDir = path.resolve("audio");
+        const audioDir = path.resolve(output_directory || "audio");
         if (!fs.existsSync(audioDir)) {
           fs.mkdirSync(audioDir, { recursive: true });
         }
@@ -280,6 +285,65 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
             model: model_id || "eleven_multilingual_v2"
           };
           fs.writeFileSync(abbreviatedTimestampPath, JSON.stringify(abbreviatedTimestampData, null, 2));
+
+          // Generate sentence-level timestamps
+          const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+          const sentenceTimestamps = [];
+          let textIndex = 0;
+          
+          for (const sentence of sentences) {
+            const trimmedSentence = sentence.trim();
+            if (trimmedSentence.length === 0) continue;
+            
+            // Find the start position of this sentence in the original text
+            const sentenceStart = text.indexOf(trimmedSentence, textIndex);
+            const sentenceEnd = sentenceStart + trimmedSentence.length;
+            
+            // Find corresponding character indices in the alignment
+            let startCharIndex = -1;
+            let endCharIndex = -1;
+            let charPos = 0;
+            
+            for (let i = 0; i < characters.length; i++) {
+              if (characters[i].trim() !== '') {
+                if (charPos === sentenceStart && startCharIndex === -1) {
+                  startCharIndex = i;
+                }
+                if (charPos === sentenceEnd - 1) {
+                  endCharIndex = i;
+                  break;
+                }
+                charPos++;
+              }
+            }
+            
+            // If we found valid indices, create timestamp entry
+            if (startCharIndex !== -1 && endCharIndex !== -1) {
+              const sentenceStartTime = startTimes[startCharIndex];
+              const sentenceEndTime = endTimes[endCharIndex];
+              
+              sentenceTimestamps.push({
+                sentence: trimmedSentence,
+                start_time: sentenceStartTime,
+                end_time: sentenceEndTime,
+                duration: sentenceEndTime - sentenceStartTime
+              });
+            }
+            
+            textIndex = sentenceEnd;
+          }
+
+          const sentenceTimestampPath = path.join(sessionDir, 'timestamps_sentences.json');
+          const sentenceTimestampData = {
+            text: text,
+            audio_file: outputFilename,
+            sentence_timestamps: sentenceTimestamps,
+            total_duration: endTimes[endTimes.length - 1],
+            generated_at: new Date().toISOString(),
+            voice_used: usedVoice,
+            model: model_id || "eleven_multilingual_v2"
+          };
+          fs.writeFileSync(sentenceTimestampPath, JSON.stringify(sentenceTimestampData, null, 2));
         }
 
         const responseText = `Directory: ${sessionDir}
@@ -288,6 +352,7 @@ ElevenLabs speech generation completed successfully. Contains:
 - ${outputFilename}: Generated audio file (${output_format || "mp3_44100_128"})
 - timestamps_full.json: Complete character-level timing data with alignment info  
 - timestamps_words.json: Simplified word-level timing summary
+- timestamps_sentences.json: Sentence-level timing data
 
 Voice: ${usedVoice} | Model: ${model_id || "eleven_multilingual_v2"}`;
 

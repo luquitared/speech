@@ -10,6 +10,7 @@ import { registerAudioMetadataTool } from "./tools/audio-metadata.js";
 import { registerAudioProcessingTools } from "./tools/audio-processing.js";
 import { registerAudioManipulationTools } from "./tools/audio-manipulation.js";
 import { registerModelInfoTool } from "./tools/model-info.js";
+import { registerAudioToTextTool } from "./tools/audio-to-text.js";
 
 // Create the MCP server
 const server = new McpServer({
@@ -30,6 +31,7 @@ const elevenlabs = new ElevenLabsClient({
 // Register all tools
 registerTextToSpeechTool(server, replicate);
 registerElevenLabsTTSTool(server, elevenlabs);
+registerAudioToTextTool(server, replicate);
 registerAudioMetadataTool(server);
 registerAudioProcessingTools(server);
 registerAudioManipulationTools(server);

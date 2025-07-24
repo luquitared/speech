@@ -7,13 +7,17 @@ import { ToolResponse } from "./types.js";
 export function registerTextToSpeechTool(server: McpServer, replicate: Replicate) {
   server.tool(
     "text-to-speech",
-    "Convert text to speech using Replicate's TTS models (Chatterbox, Chatterbox Pro, Minimax) and save to audio directory. For ElevenLabs TTS with timestamps, use the elevenlabs-text-to-speech tool instead.",
+    "Convert text to speech using Replicate's TTS models (Chatterbox, Chatterbox Pro, Minimax) and save to specified or default audio directory. For ElevenLabs TTS with timestamps, use the elevenlabs-text-to-speech tool instead.",
     {
       text: z.string().describe("The text to convert to speech"),
       filename: z
         .string()
         .optional()
         .describe("Optional filename for the audio file (without extension). Defaults to timestamp"),
+      output_directory: z
+        .string()
+        .optional()
+        .describe("Optional output directory for the audio files. Defaults to './audio'"),
       model: z
         .enum(["chatterbox", "chatterbox-pro", "minimax"])
         .optional()
@@ -97,6 +101,7 @@ export function registerTextToSpeechTool(server: McpServer, replicate: Replicate
     async ({
       text,
       filename,
+      output_directory,
       model = "chatterbox",
       seed,
       voice,
@@ -125,7 +130,7 @@ export function registerTextToSpeechTool(server: McpServer, replicate: Replicate
         const path = await import("path");
 
         // Create audio directory if it doesn't exist
-        const audioDir = path.resolve("audio");
+        const audioDir = path.resolve(output_directory || "audio");
         if (!fs.existsSync(audioDir)) {
           fs.mkdirSync(audioDir, { recursive: true });
         }
@@ -222,7 +227,7 @@ export function registerTextToSpeechTool(server: McpServer, replicate: Replicate
           content: [
             {
               type: "text",
-              text: `Successfully generated and saved speech audio file using ${model} model: ${path.join("audio", outputFilename)}`,
+              text: `Successfully generated and saved speech audio file using ${model} model: ${outputPath}`,
             },
           ],
         };
