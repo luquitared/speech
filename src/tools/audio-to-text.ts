@@ -171,25 +171,25 @@ export function registerAudioToTextTool(
 
         const input: any = {
           audio_file: publicUrl,
-          temperature,
-          diarization,
-          batch_size,
-          vad_onset,
-          vad_offset,
-          align_output,
-          debug,
         };
 
         if (language) input.language = language;
         if (initial_prompt) input.initial_prompt = initial_prompt;
         if (language_detection_min_prob) input.language_detection_min_prob = language_detection_min_prob;
         if (language_detection_max_tries) input.language_detection_max_tries = language_detection_max_tries;
+        if (temperature !== undefined) input.temperature = temperature;
+        if (batch_size !== undefined) input.batch_size = batch_size;
+        if (vad_onset !== undefined) input.vad_onset = vad_onset;
+        if (vad_offset !== undefined) input.vad_offset = vad_offset;
+        if (align_output !== undefined) input.align_output = align_output;
+        if (diarization !== undefined) input.diarization = diarization;
+        if (debug !== undefined) input.debug = debug;
         if (huggingface_access_token) input.huggingface_access_token = huggingface_access_token;
-        if (min_speakers) input.min_speakers = min_speakers;
-        if (max_speakers) input.max_speakers = max_speakers;
+        if (min_speakers !== undefined) input.min_speakers = min_speakers;
+        if (max_speakers !== undefined) input.max_speakers = max_speakers;
 
         const output = (await replicate.run(
-          "victor-upmeet/whisperx:76dd74ad77cfb45c4afd2f1e4d71b5bb67b4f2cc8abd02ff844e1f5ffaadb87e",
+          "victor-upmeet/whisperx:84d2ad2d6194fe98a17d2b60bef1c7f910c46b2f6fd38996ca457afd9c8abfcb",
           {
             input,
           }
@@ -201,6 +201,12 @@ export function registerAudioToTextTool(
             text: string;
           }>;
         };
+
+        console.log("Replicate output:", JSON.stringify(output, null, 2));
+
+        if (!output) {
+          throw new Error("No output received from Replicate API");
+        }
 
         const audioDir = join(process.cwd(), "audio");
         mkdirSync(audioDir, { recursive: true });
@@ -215,7 +221,7 @@ export function registerAudioToTextTool(
         const sentencesPath = join(audioDir, `${baseFilename}_sentences.json`);
 
         const transcriptData = {
-          detected_language: output.detected_language,
+          detected_language: output.detected_language || "unknown",
           segments: output.segments || [],
           metadata: {
             transcribed_at: new Date().toISOString(),

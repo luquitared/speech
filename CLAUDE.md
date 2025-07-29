@@ -5,14 +5,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Core Commands
 
 ### Development
+
 - `pnpm run build` - Compile TypeScript to JavaScript in dist/ directory
 - `pnpm start` - Run the compiled MCP server
 - `pnpm install` - Install dependencies
 
 ### MCP Server Installation
+
 - `pnpm run install-server` - Install to all MCP clients (Claude Desktop, Cursor, Claude Code, Gemini, MCP)
 - `pnpm run install-desktop` - Install to Claude Desktop only
-- `pnpm run install-cursor` - Install to Cursor only  
+- `pnpm run install-cursor` - Install to Cursor only
 - `pnpm run install-code` - Install to Claude Code only
 - `pnpm run install-mcp` - Install to .mcp.json only
 
@@ -29,6 +31,7 @@ This is an MCP (Model Context Protocol) server boilerplate built with:
 - **Transport**: StdioServerTransport for communication
 
 ### Project Structure
+
 ```
 src/
 ├── index.ts           # Main MCP server implementation
@@ -49,14 +52,16 @@ The server follows this pattern in src/index.ts:
 ### Tool Definition Pattern
 
 Tools are defined with:
+
 - Tool name (string)
-- Description (string)  
+- Description (string)
 - Parameters schema (Zod object)
 - Async handler function returning `{ content: [{ type: "text", text: string }] }`
 
 ### Configuration Management
 
 The `scripts/update-config.js` handles:
+
 - Multi-client configuration (Claude Desktop, Cursor, Claude Code, Gemini, MCP)
 - Environment variable parsing from .env.local
 - Automatic directory creation for config files
@@ -79,4 +84,4 @@ Optional `.env.local` file for environment variables that get automatically incl
 2. Run `pnpm run build` to compile
 3. Test with `pnpm start`
 4. Use installation scripts to update MCP client configurations
-5. Restart MCP clients to load changes
+5. Restart claude to reflect changes
