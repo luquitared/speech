@@ -17,6 +17,7 @@ export function registerAudioToTextTool(
       language: z
         .string()
         .optional()
+        .default("en")
         .describe(
           "ISO code of the language spoken in the audio, specify None to perform language detection"
         ),
@@ -90,7 +91,7 @@ export function registerAudioToTextTool(
     },
     async ({
       audio_file,
-      language,
+      language = "en",
       language_detection_min_prob,
       language_detection_max_tries,
       initial_prompt,
@@ -99,7 +100,7 @@ export function registerAudioToTextTool(
       vad_onset = 0.5,
       vad_offset = 0.363,
       align_output = true,
-      diarization = false,
+      diarization = true,
       huggingface_access_token,
       min_speakers,
       max_speakers,
@@ -169,20 +170,31 @@ export function registerAudioToTextTool(
         const publicUrl = urlData.publicUrl;
 
         const input: any = {
-          audio: publicUrl,
+          audio_file: publicUrl,
           temperature,
+          diarization,
+          batch_size,
+          vad_onset,
+          vad_offset,
+          align_output,
+          debug,
         };
 
         if (language) input.language = language;
         if (initial_prompt) input.initial_prompt = initial_prompt;
+        if (language_detection_min_prob) input.language_detection_min_prob = language_detection_min_prob;
+        if (language_detection_max_tries) input.language_detection_max_tries = language_detection_max_tries;
+        if (huggingface_access_token) input.huggingface_access_token = huggingface_access_token;
+        if (min_speakers) input.min_speakers = min_speakers;
+        if (max_speakers) input.max_speakers = max_speakers;
 
         const output = (await replicate.run(
-          "openai/whisper:cdd97b257f93cb89dede1c7584e3f3dfc969571b357dbcee08e793740bedd854",
+          "victor-upmeet/whisperx:76dd74ad77cfb45c4afd2f1e4d71b5bb67b4f2cc8abd02ff844e1f5ffaadb87e",
           {
             input,
           }
         )) as {
-          transcription?: string;
+          detected_language?: string;
           segments?: Array<{
             start: number;
             end: number;
@@ -203,15 +215,17 @@ export function registerAudioToTextTool(
         const sentencesPath = join(audioDir, `${baseFilename}_sentences.json`);
 
         const transcriptData = {
-          transcription: output.transcription || "",
+          detected_language: output.detected_language,
           segments: output.segments || [],
           metadata: {
             transcribed_at: new Date().toISOString(),
             audio_file: audio_file,
-            model: "openai/whisper",
+            model: "victor-upmeet/whisperx",
             settings: {
               language,
               temperature,
+              diarization,
+              align_output,
             },
           },
         };
@@ -219,18 +233,17 @@ export function registerAudioToTextTool(
         writeFileSync(transcriptPath, JSON.stringify(transcriptData, null, 2));
 
         let textContent = `Audio Transcript\n`;
-        textContent += `Transcribed: ${new Date().toISOString()}\n\n`;
+        textContent += `Transcribed: ${new Date().toISOString()}\n`;
+        textContent += `Detected Language: ${output.detected_language || 'unknown'}\n\n`;
 
-        if (output.transcription) {
-          textContent += output.transcription;
-        } else if (output.segments && output.segments.length > 0) {
-          output.segments.forEach((segment, index) => {
+        if (output.segments && output.segments.length > 0) {
+          output.segments.forEach((segment) => {
             const startTime = new Date(segment.start * 1000)
               .toISOString()
-              .substr(11, 12);
+              .substring(11, 23);
             const endTime = new Date(segment.end * 1000)
               .toISOString()
-              .substr(11, 12);
+              .substring(11, 23);
             textContent += `[${startTime} - ${endTime}]: ${segment.text.trim()}\n\n`;
           });
         }
@@ -273,10 +286,13 @@ export function registerAudioToTextTool(
           metadata: {
             transcribed_at: new Date().toISOString(),
             audio_file: audio_file,
-            model: "openai/whisper",
+            model: "victor-upmeet/whisperx",
+            detected_language: output.detected_language,
             settings: {
               language,
               temperature,
+              diarization,
+              align_output,
             },
           },
         };
