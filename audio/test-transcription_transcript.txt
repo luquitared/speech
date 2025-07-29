@@ -1,0 +1,12 @@
+Audio Transcript
+Transcribed: 2025-07-29T18:20:49.526Z
+Model: vaibhavs10/incredibly-fast-whisper
+
+Full Text:
+ This is a test audio file for demonstrating the speech MCP server capabilities.  We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting.  This is a test audio file for demonstrating the speech MCP server capabilities. We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting.
+
+Segments:
+[00:00:00.000 - 00:00:05.540] (SPEAKER_00): This is a test audio file for demonstrating the speech MCP server capabilities.
+
+[00:00:05.540 - 00:00:14.280] (SPEAKER_00): We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting.
+

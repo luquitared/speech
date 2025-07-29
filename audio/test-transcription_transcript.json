@@ -1,0 +1,84 @@
+{
+  "text": " This is a test audio file for demonstrating the speech MCP server capabilities.  We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting.  This is a test audio file for demonstrating the speech MCP server capabilities. We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting.",
+  "segments": [
+    {
+      "speaker": "SPEAKER_00",
+      "text": " This is a test audio file for demonstrating the speech MCP server capabilities.",
+      "timestamp": [
+        0,
+        5.54
+      ]
+    },
+    {
+      "speaker": "SPEAKER_00",
+      "text": " We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting.",
+      "timestamp": [
+        5.54,
+        14.28
+      ]
+    },
+    {
+      "chunks": [
+        {
+          "text": " This is a test audio file for demonstrating the speech MCP server capabilities.",
+          "timestamp": [
+            0,
+            5.54
+          ]
+        },
+        {
+          "text": " We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting.",
+          "timestamp": [
+            5.54,
+            14.28
+          ]
+        }
+      ],
+      "text": " This is a test audio file for demonstrating the speech MCP server capabilities. We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting."
+    }
+  ],
+  "chunks": [
+    {
+      "text": " This is a test audio file for demonstrating the speech MCP server capabilities.",
+      "timestamp": [
+        0,
+        5.54
+      ],
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "text": " We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting.",
+      "timestamp": [
+        5.54,
+        14.28
+      ],
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "text": " This is a test audio file for demonstrating the speech MCP server capabilities.",
+      "timestamp": [
+        0,
+        5.54
+      ]
+    },
+    {
+      "text": " We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting.",
+      "timestamp": [
+        5.54,
+        14.28
+      ]
+    }
+  ],
+  "metadata": {
+    "transcribed_at": "2025-07-29T18:20:49.525Z",
+    "audio_file": "/Users/silasrhyneer/Code/MCP/speech/audio/test-audio.wav",
+    "model": "vaibhavs10/incredibly-fast-whisper",
+    "settings": {
+      "task": "transcribe",
+      "language": "english",
+      "timestamp": "chunk",
+      "batch_size": 64,
+      "diarise_audio": true
+    }
+  }
+}

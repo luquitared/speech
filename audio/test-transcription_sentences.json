@@ -1,0 +1,30 @@
+{
+  "sentence_timestamps": [
+    {
+      "sentence": "This is a test audio file for demonstrating the speech MCP server capabilities.",
+      "start_time": 0,
+      "end_time": 5.54,
+      "duration": 5.54,
+      "speaker": "SPEAKER_00"
+    },
+    {
+      "sentence": "We will use this audio to test various editing operations including trimming, volume adjustment, format conversion, and splitting.",
+      "start_time": 5.54,
+      "end_time": 14.28,
+      "duration": 8.739999999999998,
+      "speaker": "SPEAKER_00"
+    }
+  ],
+  "metadata": {
+    "transcribed_at": "2025-07-29T18:20:49.526Z",
+    "audio_file": "/Users/silasrhyneer/Code/MCP/speech/audio/test-audio.wav",
+    "model": "vaibhavs10/incredibly-fast-whisper",
+    "settings": {
+      "task": "transcribe",
+      "language": "None",
+      "timestamp": "chunk",
+      "batch_size": 64,
+      "diarise_audio": true
+    }
+  }
+}

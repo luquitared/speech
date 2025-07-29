@@ -3,5 +3,6 @@ build
 dist
 .DS_Store
 .mcp.json
-audio/
 .env.local
+*.wav
+*.mp3

@@ -1,9 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createClient } from "@supabase/supabase-js";
+import { config } from "dotenv";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
 import type Replicate from "replicate";
 import { z } from "zod";
+
+config({ path: ".env.local" });
 
 export function registerAudioToTextTool(
   server: McpServer,
@@ -14,73 +17,19 @@ export function registerAudioToTextTool(
     "Transcribe audio files to text with word-level timestamps using WhisperX. Automatically saves transcript with timestamps, sentence-level timestamps, and returns directory reference.",
     {
       audio_file: z.string().describe("Path to the audio file to transcribe"),
-      language: z
-        .string()
+      task: z
+        .enum(["transcribe", "translate"])
         .optional()
-        .default("en")
+        .default("transcribe")
         .describe(
-          "ISO code of the language spoken in the audio, specify None to perform language detection"
+          "Task to perform: transcribe or translate to another language."
         ),
-      language_detection_min_prob: z
-        .number()
-        .optional()
-        .describe(
-          "If language is not specified, then the language will be detected recursively on different parts of the file until it reaches the given probability"
-        ),
-      language_detection_max_tries: z
-        .number()
-        .int()
-        .optional()
-        .describe(
-          "If language is not specified, then the language will be detected following the logic of language_detection_min_prob parameter, but will stop after the given max retries"
-        ),
-      initial_prompt: z
-        .string()
-        .optional()
-        .describe("Optional text to provide as a prompt for the first window"),
-      batch_size: z
-        .number()
-        .int()
-        .optional()
-        .describe("Parallelization of input audio transcription"),
-      temperature: z
-        .number()
-        .optional()
-        .describe("Temperature to use for sampling"),
-      vad_onset: z.number().optional().describe("VAD onset"),
-      vad_offset: z.number().optional().describe("VAD offset"),
-      align_output: z
+      diarise_audio: z
         .boolean()
         .optional()
+        .default(true)
         .describe(
-          "Aligns whisper output to get accurate word-level timestamps"
-        ),
-      diarization: z.boolean().optional().describe("Assign speaker ID labels"),
-      huggingface_access_token: z
-        .string()
-        .optional()
-        .describe(
-          "To enable diarization, please enter your HuggingFace token (read). You need to accept the user agreement for the models specified in the README"
-        ),
-      min_speakers: z
-        .number()
-        .int()
-        .optional()
-        .describe(
-          "Minimum number of speakers if diarization is activated (leave blank if unknown)"
-        ),
-      max_speakers: z
-        .number()
-        .int()
-        .optional()
-        .describe(
-          "Maximum number of speakers if diarization is activated (leave blank if unknown)"
-        ),
-      debug: z
-        .boolean()
-        .optional()
-        .describe(
-          "Print out compute/inference times and memory usage information"
+          "Use Pyannote.audio to diarise the audio clips. You will need to provide hf_token below too."
         ),
       filename: z
         .string()
@@ -91,20 +40,8 @@ export function registerAudioToTextTool(
     },
     async ({
       audio_file,
-      language = "en",
-      language_detection_min_prob,
-      language_detection_max_tries,
-      initial_prompt,
-      batch_size = 64,
-      temperature = 0,
-      vad_onset = 0.5,
-      vad_offset = 0.363,
-      align_output = true,
-      diarization = true,
-      huggingface_access_token,
-      min_speakers,
-      max_speakers,
-      debug = false,
+      task = "transcribe",
+      diarise_audio = true,
       filename,
     }) => {
       try {
@@ -148,7 +85,7 @@ export function registerAudioToTextTool(
         const fileName = `${Date.now()}-${basename(audio_file)}`;
         const filePath = `audio/${fileName}`;
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from("audio")
           .upload(filePath, fileBuffer, {
             contentType: "audio/wav",
@@ -170,41 +107,33 @@ export function registerAudioToTextTool(
         const publicUrl = urlData.publicUrl;
 
         const input: any = {
-          audio_file: publicUrl,
+          audio: publicUrl,
+          task,
+          language: "None",
+          timestamp: "chunk",
+          batch_size: 64,
+          diarise_audio,
+          hf_token: process.env.HF_TOKEN,
         };
 
-        if (language) input.language = language;
-        if (initial_prompt) input.initial_prompt = initial_prompt;
-        if (language_detection_min_prob) input.language_detection_min_prob = language_detection_min_prob;
-        if (language_detection_max_tries) input.language_detection_max_tries = language_detection_max_tries;
-        if (temperature !== undefined) input.temperature = temperature;
-        if (batch_size !== undefined) input.batch_size = batch_size;
-        if (vad_onset !== undefined) input.vad_onset = vad_onset;
-        if (vad_offset !== undefined) input.vad_offset = vad_offset;
-        if (align_output !== undefined) input.align_output = align_output;
-        if (diarization !== undefined) input.diarization = diarization;
-        if (debug !== undefined) input.debug = debug;
-        if (huggingface_access_token) input.huggingface_access_token = huggingface_access_token;
-        if (min_speakers !== undefined) input.min_speakers = min_speakers;
-        if (max_speakers !== undefined) input.max_speakers = max_speakers;
-
         const output = (await replicate.run(
-          "victor-upmeet/whisperx:84d2ad2d6194fe98a17d2b60bef1c7f910c46b2f6fd38996ca457afd9c8abfcb",
+          "vaibhavs10/incredibly-fast-whisper:3ab86df6c8f54c11309d4d1f930ac292bad43ace52d10c80d87eb258b3c9f79c",
           {
             input,
           }
-        )) as {
-          detected_language?: string;
-          segments?: Array<{
-            start: number;
-            end: number;
+        )) as Array<{
+          text: string;
+          speaker?: string;
+          timestamp: [number, number];
+          chunks?: Array<{
             text: string;
+            timestamp: [number, number];
           }>;
-        };
+        }>;
 
         console.log("Replicate output:", JSON.stringify(output, null, 2));
 
-        if (!output) {
+        if (!output || !Array.isArray(output)) {
           throw new Error("No output received from Replicate API");
         }
 
@@ -218,20 +147,35 @@ export function registerAudioToTextTool(
           `${baseFilename}_transcript.json`
         );
         const textPath = join(audioDir, `${baseFilename}_transcript.txt`);
+        const markdownPath = join(audioDir, `${baseFilename}_transcript.md`);
         const sentencesPath = join(audioDir, `${baseFilename}_sentences.json`);
 
+        const fullText = output.map((segment) => segment.text).join(" ");
+        const allChunks = output.flatMap(
+          (segment) =>
+            segment.chunks || [
+              {
+                text: segment.text,
+                timestamp: segment.timestamp,
+                speaker: segment.speaker,
+              },
+            ]
+        );
+
         const transcriptData = {
-          detected_language: output.detected_language || "unknown",
-          segments: output.segments || [],
+          text: fullText,
+          segments: output,
+          chunks: allChunks,
           metadata: {
             transcribed_at: new Date().toISOString(),
             audio_file: audio_file,
-            model: "victor-upmeet/whisperx",
+            model: "vaibhavs10/incredibly-fast-whisper",
             settings: {
-              language,
-              temperature,
-              diarization,
-              align_output,
+              task,
+              language: "english",
+              timestamp: "chunk",
+              batch_size: 64,
+              diarise_audio,
             },
           },
         };
@@ -240,48 +184,81 @@ export function registerAudioToTextTool(
 
         let textContent = `Audio Transcript\n`;
         textContent += `Transcribed: ${new Date().toISOString()}\n`;
-        textContent += `Detected Language: ${output.detected_language || 'unknown'}\n\n`;
+        textContent += `Model: vaibhavs10/incredibly-fast-whisper\n\n`;
 
-        if (output.segments && output.segments.length > 0) {
-          output.segments.forEach((segment) => {
-            const startTime = new Date(segment.start * 1000)
+        if (fullText) {
+          textContent += `Full Text:\n${fullText}\n\n`;
+        }
+
+        // Filter output to only include segments with valid structure for text content
+        const validSegmentsForText = output.filter(segment => 
+          segment && segment.timestamp && Array.isArray(segment.timestamp) && segment.timestamp.length >= 2
+        );
+
+        if (validSegmentsForText && validSegmentsForText.length > 0) {
+          textContent += `Segments:\n`;
+          validSegmentsForText.forEach((segment) => {
+            const startTime = new Date(segment.timestamp[0] * 1000)
               .toISOString()
               .substring(11, 23);
-            const endTime = new Date(segment.end * 1000)
+            const endTime = new Date(segment.timestamp[1] * 1000)
               .toISOString()
               .substring(11, 23);
-            textContent += `[${startTime} - ${endTime}]: ${segment.text.trim()}\n\n`;
+            const speakerInfo = segment.speaker ? ` (${segment.speaker})` : "";
+            textContent += `[${startTime} - ${endTime}]${speakerInfo}: ${segment.text.trim()}\n\n`;
           });
         }
 
         writeFileSync(textPath, textContent);
 
-        // Generate sentence-level timestamps by grouping segments
-        const sentenceTimestamps = [];
-        if (output.segments && output.segments.length > 0) {
-          let currentSentence = "";
-          let sentenceStart = output.segments[0].start;
+        // Generate simple markdown transcript with speaker labels
+        let markdownContent = '';
+        if (validSegmentsForText && validSegmentsForText.length > 0) {
+          validSegmentsForText.forEach((segment) => {
+            const speakerLabel = segment.speaker ? segment.speaker.toLowerCase() : 'speaker_00';
+            markdownContent += `(${speakerLabel}): ${segment.text.trim()}\n\n`;
+          });
+        }
+        
+        writeFileSync(markdownPath, markdownContent);
 
-          for (let i = 0; i < output.segments.length; i++) {
-            const segment = output.segments[i];
+        // Generate sentence-level timestamps by grouping chunks
+        const sentenceTimestamps = [];
+        
+        // Filter output to only include segments with valid structure
+        const validSegments = output.filter(segment => 
+          segment && segment.timestamp && Array.isArray(segment.timestamp) && segment.timestamp.length >= 2
+        );
+        
+        if (validSegments && validSegments.length > 0) {
+          let currentSentence = "";
+          let sentenceStart = validSegments[0].timestamp[0];
+          let currentSpeaker = validSegments[0].speaker;
+
+          for (let i = 0; i < validSegments.length; i++) {
+            const segment = validSegments[i];
             currentSentence += segment.text;
 
             // Check if this segment ends a sentence (contains sentence-ending punctuation)
             const endsWithPunctuation = /[.!?][\s]*$/.test(segment.text.trim());
-            const isLastSegment = i === output.segments.length - 1;
+            const isLastSegment = i === validSegments.length - 1;
+            const speakerChanged =
+              i < validSegments.length - 1 && validSegments[i + 1].speaker !== currentSpeaker;
 
-            if (endsWithPunctuation || isLastSegment) {
+            if (endsWithPunctuation || isLastSegment || speakerChanged) {
               sentenceTimestamps.push({
                 sentence: currentSentence.trim(),
                 start_time: sentenceStart,
-                end_time: segment.end,
-                duration: segment.end - sentenceStart,
+                end_time: segment.timestamp[1],
+                duration: segment.timestamp[1] - sentenceStart,
+                speaker: currentSpeaker,
               });
 
               // Reset for next sentence
-              if (i < output.segments.length - 1) {
+              if (i < validSegments.length - 1) {
                 currentSentence = "";
-                sentenceStart = output.segments[i + 1].start;
+                sentenceStart = validSegments[i + 1].timestamp[0];
+                currentSpeaker = validSegments[i + 1].speaker;
               }
             }
           }
@@ -292,23 +269,23 @@ export function registerAudioToTextTool(
           metadata: {
             transcribed_at: new Date().toISOString(),
             audio_file: audio_file,
-            model: "victor-upmeet/whisperx",
-            detected_language: output.detected_language,
+            model: "vaibhavs10/incredibly-fast-whisper",
             settings: {
-              language,
-              temperature,
-              diarization,
-              align_output,
+              task,
+              language: "None",
+              timestamp: "chunk",
+              batch_size: 64,
+              diarise_audio,
             },
           },
         };
 
         writeFileSync(sentencesPath, JSON.stringify(sentenceData, null, 2));
 
-        const segmentCount = output.segments?.length || 0;
+        const segmentCount = output?.length || 0;
         const duration =
-          output.segments && output.segments.length > 0
-            ? output.segments[output.segments.length - 1].end
+          validSegments && validSegments.length > 0
+            ? validSegments[validSegments.length - 1].timestamp[1]
             : 0;
 
         return {
@@ -324,6 +301,7 @@ Duration: ${duration.toFixed(2)} seconds
 Files saved:
 - Full transcript with timestamps: ${transcriptPath}
 - Human-readable transcript: ${textPath}
+- Simple markdown transcript: ${markdownPath}
 - Sentence-level timestamps: ${sentencesPath}
 
 Audio directory: ${audioDir}`,
