@@ -287,38 +287,25 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
           fs.writeFileSync(abbreviatedTimestampPath, JSON.stringify(abbreviatedTimestampData, null, 2));
 
           // Generate sentence-level timestamps
-          const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+          const sentenceMatches = text.match(/[^.!?]*[.!?]+/g) || [];
           const sentenceTimestamps = [];
           let textIndex = 0;
           
-          for (const sentence of sentences) {
-            const trimmedSentence = sentence.trim();
+          for (const fullSentence of sentenceMatches) {
+            const trimmedSentence = fullSentence.trim();
             if (trimmedSentence.length === 0) continue;
             
             // Find the start position of this sentence in the original text
             const sentenceStart = text.indexOf(trimmedSentence, textIndex);
             const sentenceEnd = sentenceStart + trimmedSentence.length;
             
-            // Find corresponding character indices in the alignment
-            let startCharIndex = -1;
-            let endCharIndex = -1;
-            let charPos = 0;
+            // Find corresponding character indices in the alignment (direct mapping)
+            const startCharIndex = sentenceStart;
+            const endCharIndex = sentenceEnd - 1;
             
-            for (let i = 0; i < characters.length; i++) {
-              if (characters[i].trim() !== '') {
-                if (charPos === sentenceStart && startCharIndex === -1) {
-                  startCharIndex = i;
-                }
-                if (charPos === sentenceEnd - 1) {
-                  endCharIndex = i;
-                  break;
-                }
-                charPos++;
-              }
-            }
-            
-            // If we found valid indices, create timestamp entry
-            if (startCharIndex !== -1 && endCharIndex !== -1) {
+            // Ensure indices are within bounds
+            if (startCharIndex >= 0 && startCharIndex < startTimes.length && 
+                endCharIndex >= 0 && endCharIndex < endTimes.length) {
               const sentenceStartTime = startTimes[startCharIndex];
               const sentenceEndTime = endTimes[endCharIndex];
               
