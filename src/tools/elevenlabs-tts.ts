@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { z } from "zod";
 import { ToolResponse } from "./types.js";
+import ffmpeg from "fluent-ffmpeg";
 
 // ElevenLabs voice mapping
 const ELEVENLABS_VOICES = {
@@ -224,18 +225,6 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
         
         // Save timestamp data to files if available
         if (elevenLabsResponse.alignment) {
-          // Full timestamp data file
-          const fullTimestampPath = path.join(sessionDir, 'timestamps_full.json');
-          const fullTimestampData = {
-            text: text,
-            audio_file: outputFilename,
-            alignment: elevenLabsResponse.alignment,
-            normalized_alignment: elevenLabsResponse.normalizedAlignment,
-            generated_at: new Date().toISOString(),
-            voice_used: usedVoice,
-            model: model_id || "eleven_multilingual_v2"
-          };
-          fs.writeFileSync(fullTimestampPath, JSON.stringify(fullTimestampData, null, 2));
 
           // Abbreviated timestamp file (word-level approximations)
           const words = text.split(/\s+/);
@@ -243,8 +232,9 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
           const startTimes = elevenLabsResponse.alignment.characterStartTimesSeconds;
           const endTimes = elevenLabsResponse.alignment.characterEndTimesSeconds;
           
-          const wordTimestamps = [];
+          const wordTimestamps: { [key: number]: { word: string; start_time: number; end_time: number; duration: number } } = {};
           let charIndex = 0;
+          let wordIndex = 0;
           
           for (const word of words) {
             // Find the start of this word in the character array
@@ -259,13 +249,14 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
               const wordEndCharIndex = Math.min(charIndex + word.length - 1, characters.length - 1);
               const wordEnd = endTimes[wordEndCharIndex];
               
-              wordTimestamps.push({
+              wordTimestamps[wordIndex] = {
                 word: word,
                 start_time: wordStart,
                 end_time: wordEnd,
                 duration: wordEnd - wordStart
-              });
+              };
               
+              wordIndex++;
               charIndex += word.length;
               // Skip spaces
               while (charIndex < characters.length && characters[charIndex].trim() === '') {
@@ -274,72 +265,45 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
             }
           }
 
-          const abbreviatedTimestampPath = path.join(sessionDir, 'timestamps_words.json');
-          const abbreviatedTimestampData = {
-            text: text,
-            audio_file: outputFilename,
-            word_timestamps: wordTimestamps,
-            total_duration: endTimes[endTimes.length - 1],
-            generated_at: new Date().toISOString(),
-            voice_used: usedVoice,
-            model: model_id || "eleven_multilingual_v2"
-          };
-          fs.writeFileSync(abbreviatedTimestampPath, JSON.stringify(abbreviatedTimestampData, null, 2));
-
-          // Generate sentence-level timestamps
-          const sentenceMatches = text.match(/[^.!?]*[.!?]+/g) || [];
-          const sentenceTimestamps = [];
-          let textIndex = 0;
-          
-          for (const fullSentence of sentenceMatches) {
-            const trimmedSentence = fullSentence.trim();
-            if (trimmedSentence.length === 0) continue;
-            
-            // Find the start position of this sentence in the original text
-            const sentenceStart = text.indexOf(trimmedSentence, textIndex);
-            const sentenceEnd = sentenceStart + trimmedSentence.length;
-            
-            // Find corresponding character indices in the alignment (direct mapping)
-            const startCharIndex = sentenceStart;
-            const endCharIndex = sentenceEnd - 1;
-            
-            // Ensure indices are within bounds
-            if (startCharIndex >= 0 && startCharIndex < startTimes.length && 
-                endCharIndex >= 0 && endCharIndex < endTimes.length) {
-              const sentenceStartTime = startTimes[startCharIndex];
-              const sentenceEndTime = endTimes[endCharIndex];
-              
-              sentenceTimestamps.push({
-                sentence: trimmedSentence,
-                start_time: sentenceStartTime,
-                end_time: sentenceEndTime,
-                duration: sentenceEndTime - sentenceStartTime
+          // Get actual audio duration using ffprobe
+          const getAudioDuration = (): Promise<number> => {
+            return new Promise((resolve, reject) => {
+              ffmpeg.ffprobe(outputPath, (err, metadata) => {
+                if (err) {
+                  reject(err);
+                  return;
+                }
+                resolve(metadata.format.duration || 0);
               });
-            }
-            
-            textIndex = sentenceEnd;
-          }
-
-          const sentenceTimestampPath = path.join(sessionDir, 'timestamps_sentences.json');
-          const sentenceTimestampData = {
-            text: text,
-            audio_file: outputFilename,
-            sentence_timestamps: sentenceTimestamps,
-            total_duration: endTimes[endTimes.length - 1],
-            generated_at: new Date().toISOString(),
-            voice_used: usedVoice,
-            model: model_id || "eleven_multilingual_v2"
+            });
           };
-          fs.writeFileSync(sentenceTimestampPath, JSON.stringify(sentenceTimestampData, null, 2));
+
+          const actualDuration = await getAudioDuration();
+
+          // Save word timestamps JSON with only word_timestamps and total_duration
+          const wordTimestampPath = path.join(sessionDir, 'word_timestamps.json');
+          const wordTimestampData = {
+            word_timestamps: wordTimestamps,
+            total_duration: actualDuration
+          };
+          fs.writeFileSync(wordTimestampPath, JSON.stringify(wordTimestampData, null, 2));
+
+          // Create numbered word list text file
+          const wordListPath = path.join(sessionDir, 'word_list.txt');
+          let wordListContent = '';
+          for (const [index, wordData] of Object.entries(wordTimestamps)) {
+            wordListContent += `${index}. ${wordData.word}\n`;
+          }
+          fs.writeFileSync(wordListPath, wordListContent);
+
         }
 
         const responseText = `Directory: ${sessionDir}
 
 ElevenLabs speech generation completed successfully. Contains:
 - ${outputFilename}: Generated audio file (${output_format || "mp3_44100_128"})
-- timestamps_full.json: Complete character-level timing data with alignment info  
-- timestamps_words.json: Simplified word-level timing summary
-- timestamps_sentences.json: Sentence-level timing data
+- word_timestamps.json: Word-level timing data (indexed mapping)
+- word_list.txt: Numbered list of words
 
 Voice: ${usedVoice} | Model: ${model_id || "eleven_multilingual_v2"}`;
 

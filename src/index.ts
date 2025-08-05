@@ -11,6 +11,7 @@ import { registerAudioProcessingTools } from "./tools/audio-processing.js";
 import { registerAudioManipulationTools } from "./tools/audio-manipulation.js";
 import { registerModelInfoTool } from "./tools/model-info.js";
 import { registerAudioToTextTool } from "./tools/audio-to-text.js";
+import { registerSceneTimingsTool } from "./tools/scene-timings.js";
 
 // Create the MCP server
 const server = new McpServer({
@@ -36,6 +37,7 @@ registerAudioMetadataTool(server);
 registerAudioProcessingTools(server);
 registerAudioManipulationTools(server);
 registerModelInfoTool(server);
+registerSceneTimingsTool(server);
 
 // Start the server
 async function main() {
