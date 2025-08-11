@@ -31,6 +31,13 @@ export function registerAudioToTextTool(
         .describe(
           "Use Pyannote.audio to diarise the audio clips. You will need to provide hf_token below too."
         ),
+      output_directory: z
+        .string()
+        .optional()
+        .default("./audio")
+        .describe(
+          "Output directory for the audio files. Defaults to './audio' in current working directory"
+        ),
       filename: z
         .string()
         .optional()
@@ -42,6 +49,7 @@ export function registerAudioToTextTool(
       audio_file,
       task = "transcribe",
       diarise_audio = true,
+      output_directory = "./audio",
       filename,
     }) => {
       try {
@@ -79,10 +87,16 @@ export function registerAudioToTextTool(
         } else {
         }
 
-        // Upload file to Supabase storage
-        const fileBuffer = readFileSync(audio_file);
+        // Handle @ prefix in audio_file path
+        let processedAudioFile = audio_file;
+        if (audio_file.startsWith('@')) {
+          processedAudioFile = join(process.cwd(), audio_file.substring(1));
+        }
 
-        const fileName = `${Date.now()}-${basename(audio_file)}`;
+        // Upload file to Supabase storage
+        const fileBuffer = readFileSync(processedAudioFile);
+
+        const fileName = `${Date.now()}-${basename(processedAudioFile)}`;
         const filePath = `audio/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -137,7 +151,9 @@ export function registerAudioToTextTool(
           throw new Error("No output received from Replicate API");
         }
 
-        const audioDir = join(process.cwd(), "audio");
+        const audioDir = output_directory.startsWith('/') || output_directory.startsWith('C:') 
+          ? output_directory 
+          : join(process.cwd(), output_directory);
         mkdirSync(audioDir, { recursive: true });
 
         const baseFilename =
@@ -168,7 +184,7 @@ export function registerAudioToTextTool(
           chunks: allChunks,
           metadata: {
             transcribed_at: new Date().toISOString(),
-            audio_file: audio_file,
+            audio_file: processedAudioFile,
             model: "vaibhavs10/incredibly-fast-whisper",
             settings: {
               task,
@@ -268,7 +284,7 @@ export function registerAudioToTextTool(
           sentence_timestamps: sentenceTimestamps,
           metadata: {
             transcribed_at: new Date().toISOString(),
-            audio_file: audio_file,
+            audio_file: processedAudioFile,
             model: "vaibhavs10/incredibly-fast-whisper",
             settings: {
               task,

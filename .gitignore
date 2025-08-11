@@ -4,5 +4,4 @@ dist
 .DS_Store
 .mcp.json
 .env.local
-*.wav
-*.mp3
+audio/
