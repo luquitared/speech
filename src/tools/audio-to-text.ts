@@ -35,9 +35,7 @@ export function registerAudioToTextTool(
         .string()
         .optional()
         .default("./audio")
-        .describe(
-          "Output directory for the audio files. Defaults to './audio' in current working directory"
-        ),
+        .describe("Output directory for the audio files"),
       filename: z
         .string()
         .optional()
@@ -89,7 +87,7 @@ export function registerAudioToTextTool(
 
         // Handle @ prefix in audio_file path
         let processedAudioFile = audio_file;
-        if (audio_file.startsWith('@')) {
+        if (audio_file.startsWith("@")) {
           processedAudioFile = join(process.cwd(), audio_file.substring(1));
         }
 
@@ -151,9 +149,7 @@ export function registerAudioToTextTool(
           throw new Error("No output received from Replicate API");
         }
 
-        const audioDir = output_directory.startsWith('/') || output_directory.startsWith('C:') 
-          ? output_directory 
-          : join(process.cwd(), output_directory);
+        const audioDir = join(process.cwd(), "audio");
         mkdirSync(audioDir, { recursive: true });
 
         const baseFilename =
@@ -207,8 +203,12 @@ export function registerAudioToTextTool(
         }
 
         // Filter output to only include segments with valid structure for text content
-        const validSegmentsForText = output.filter(segment => 
-          segment && segment.timestamp && Array.isArray(segment.timestamp) && segment.timestamp.length >= 2
+        const validSegmentsForText = output.filter(
+          (segment) =>
+            segment &&
+            segment.timestamp &&
+            Array.isArray(segment.timestamp) &&
+            segment.timestamp.length >= 2
         );
 
         if (validSegmentsForText && validSegmentsForText.length > 0) {
@@ -228,24 +228,30 @@ export function registerAudioToTextTool(
         writeFileSync(textPath, textContent);
 
         // Generate simple markdown transcript with speaker labels
-        let markdownContent = '';
+        let markdownContent = "";
         if (validSegmentsForText && validSegmentsForText.length > 0) {
           validSegmentsForText.forEach((segment) => {
-            const speakerLabel = segment.speaker ? segment.speaker.toLowerCase() : 'speaker_00';
+            const speakerLabel = segment.speaker
+              ? segment.speaker.toLowerCase()
+              : "speaker_00";
             markdownContent += `(${speakerLabel}): ${segment.text.trim()}\n\n`;
           });
         }
-        
+
         writeFileSync(markdownPath, markdownContent);
 
         // Generate sentence-level timestamps by grouping chunks
         const sentenceTimestamps = [];
-        
+
         // Filter output to only include segments with valid structure
-        const validSegments = output.filter(segment => 
-          segment && segment.timestamp && Array.isArray(segment.timestamp) && segment.timestamp.length >= 2
+        const validSegments = output.filter(
+          (segment) =>
+            segment &&
+            segment.timestamp &&
+            Array.isArray(segment.timestamp) &&
+            segment.timestamp.length >= 2
         );
-        
+
         if (validSegments && validSegments.length > 0) {
           let currentSentence = "";
           let sentenceStart = validSegments[0].timestamp[0];
@@ -259,7 +265,8 @@ export function registerAudioToTextTool(
             const endsWithPunctuation = /[.!?][\s]*$/.test(segment.text.trim());
             const isLastSegment = i === validSegments.length - 1;
             const speakerChanged =
-              i < validSegments.length - 1 && validSegments[i + 1].speaker !== currentSpeaker;
+              i < validSegments.length - 1 &&
+              validSegments[i + 1].speaker !== currentSpeaker;
 
             if (endsWithPunctuation || isLastSegment || speakerChanged) {
               sentenceTimestamps.push({
