@@ -118,7 +118,7 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
       apply_language_text_normalization: z
         .boolean()
         .optional()
-        .describe("Language text normalization (default: false). May increase latency but improves pronunciation"),
+        .describe("Language text normalization (default: true). May increase latency but improves pronunciation"),
       
       // System settings
       enable_logging: z
@@ -166,7 +166,7 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
         fs.mkdirSync(sessionDir, { recursive: true });
 
         // Determine voice ID
-        const voiceId = voice_id || (voice ? ELEVENLABS_VOICES[voice] : "21m00Tcm4TlvDq8ikWAM");
+        const voiceId = voice_id || (voice ? ELEVENLABS_VOICES[voice] : process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM");
 
         // Build request options
         const requestOptions: any = {
@@ -186,6 +186,7 @@ export function registerElevenLabsTTSTool(server: McpServer, elevenlabs: ElevenL
         if (next_text) requestOptions.nextText = next_text;
         if (apply_text_normalization) requestOptions.applyTextNormalization = apply_text_normalization;
         if (apply_language_text_normalization !== undefined) requestOptions.applyLanguageTextNormalization = apply_language_text_normalization;
+        else requestOptions.applyLanguageTextNormalization = true;
         if (seed !== undefined) requestOptions.seed = seed;
 
         // Build query parameters
