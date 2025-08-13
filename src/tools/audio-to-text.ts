@@ -6,7 +6,7 @@ import { basename, join } from "path";
 import type Replicate from "replicate";
 import { z } from "zod";
 
-config({ path: ".env.local" });
+config({ path: ".env.local", debug: false });
 
 export function registerAudioToTextTool(
   server: McpServer,
