@@ -25,7 +25,7 @@ function updatePackageJson() {
   const dirName = path.basename(path.dirname(packageJsonPath));
 
   // Update package name to match directory
-  packageJson.name = `@r-mcp/${dirName}`;
+  packageJson.name = `@lucasneg/${dirName}`;
 
   // Update bin name to match directory
   packageJson.bin = {
