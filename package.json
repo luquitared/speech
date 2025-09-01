@@ -1,6 +1,6 @@
 {
-  "name": "@r-mcp/speech",
-  "version": "1.0.7",
+  "name": "@lucasneg/speech",
+  "version": "1.0.8",
   "description": "A starter template for building MCP (Model Context Protocol) servers",
   "main": "dist/index.js",
   "type": "module",
